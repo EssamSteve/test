@@ -1,0 +1,92 @@
+---
+title: "BIg MarT Sales EDA and Feature Engineering R Notebook"
+output: "EDA & Feature Engineering"
+---
+
+```{r}
+Bigmart=read.csv("D:/me/UseCase/BigMart Sales/Train_UWu5bXk.csv")
+```
+# EDA
+```{r}
+summary(Bigmart)
+```
+```{r}
+library(ggplot2)
+library(tidyverse)
+Bigmart %>% filter(Bigmart$Item_Identifier=="FDG33")
+```
+```{r}
+Bigmart$Item_Identifier<-as.character(Bigmart$Item_Identifier)
+```
+
+```{r}
+
+Bigmart %>% ggplot(aes(x=Item_Identifier)) +geom_bar()
+itemCount<-Bigmart %>% group_by(Item_Identifier) %>% count(name = "Product ID Count",sort = TRUE)
+```
+
+```{r}
+itemCount %>% group_by(`Product ID Count`) %>% count(name = "freq",sort = TRUE) %>% ggplot(aes(x=`Product ID Count`,y=freq))+geom_bar(stat = "identity")
+```
+### products ocuurance frequency, on average product distributed on 5 out of 10 outlets.(50 %)
+
+## So products are exist in different outlets with different locations and different price,...
+##   , let's see more about outlets
+```{r}
+Bigmart$Outlet_Identifier<-factor(Bigmart$Outlet_Identifier,levels = c('OUT046','OUT049','OUT017','OUT018','OUT013','OUT027','OUT035','OUT045','OUT010','OUT019'))
+Bigmart %>% group_by(Outlet_Identifier)%>% count(name = "COUNT") %>% ggplot(aes(x=Outlet_Identifier,y=COUNT))+geom_bar(stat = "identity")
+```
+```{r}
+Bigmart %>% ggplot(aes(x=Outlet_Location_Type,fill=Bigmart$Outlet_Size))+
+  geom_bar()+ggtitle("Outlet Locations Distribution")+
+  xlab("Location Tiers")+theme(plot.title=element_text(hjust=0.5))
+```
+ ### we have to handle missing values
+```{r}
+sum(Bigmart$Outlet_Size=="")
+colSums(is.na(Bigmart))
+```
+```{r}
+sum(Bigmart$Outlet_Size=="")/nrow(Bigmart)
+colSums(is.na(Bigmart))[2]/nrow(Bigmart)
+```
+ ### So  28 %  for outlet size and 17 % on item weight , more than 5% ,let's handle it ^_^
+```{r}
+library(mice)
+library(naniar)
+Bigmart.Miss<-Bigmart %>% replace_with_na(replace =list(Outlet_Size=""))
+md.pattern(subset(Bigmart.Miss,select = c(Outlet_Size,Item_Weight)))
+```
+```{r}
+library(VIM)
+mice_plot <- aggr(Bigmart.Miss, col=c('navyblue','yellow'),numbers=TRUE, sortVars=TRUE,
+          labels=names(Bigmart.Miss), cex.axis=.7,gap=3, ylab=c("Missing data","Pattern"))
+```
+```{r}
+Bigmart.Imputed <- mice(Bigmart.Miss, m=5, maxit = 50, method = 'pmm', seed = 500)
+```
+
+```{r}
+Bigmart.Imputed
+```
+ 
+```{r}
+Bigmart %>% ggplot(aes(x=Item_Weight))+geom_histogram(binwidth = 1,bins = 20,na.rm = TRUE)
+```
+```{r}
+summary(Bigmart$Item_Fat_Content)
+```
+### fix Item_Fat_Content variable
+
+```{r}
+Bigmart$Item_Fat_Content[Bigmart$Item_Fat_Content=="low fat"]<- "Low Fat"
+Bigmart$Item_Fat_Content[Bigmart$Item_Fat_Content=="LF"]<- "Low Fat"
+Bigmart$Item_Fat_Content[Bigmart$Item_Fat_Content=="reg"]<- "Regular"
+summary(Bigmart$Item_Fat_Content)
+```
+
+```{r}
+Bigmart$Item_Fat_Content<-as_factor(Bigmart$Item_Fat_Content)
+Bigmart %>% ggplot(aes(x=Item_Fat_Content))+geom_bar()
+```
+
